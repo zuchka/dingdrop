@@ -177,7 +177,7 @@ export function Timeline({
                 tickLine={false}
                 axisLine={{ stroke: "#cbd5e1" }}
                 domain={[0, maxLatency * 1.1]}
-                tickFormatter={(value) => `${value}ms`}
+                tickFormatter={(value) => `${Math.round(value)}ms`}
               />
               <ChartTooltip
                 content={({ active, payload }) => {
