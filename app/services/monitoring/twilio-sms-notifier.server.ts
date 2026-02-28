@@ -1,4 +1,5 @@
-import { Twilio } from "twilio";
+import pkg from "twilio";
+const { Twilio } = pkg;
 
 /**
  * Send SMS notification via Twilio
