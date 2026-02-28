@@ -1,0 +1,46 @@
+-- Convert monitoring-control-plane time columns to timestamptz for unambiguous UTC instants.
+-- Existing values were written as UTC wall clock in timestamp without time zone, so interpret them as UTC.
+
+ALTER TABLE "Monitor"
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "ProbeJob"
+  ALTER COLUMN "slotKey" TYPE TIMESTAMPTZ(3) USING "slotKey" AT TIME ZONE 'UTC',
+  ALTER COLUMN "scheduledFor" TYPE TIMESTAMPTZ(3) USING "scheduledFor" AT TIME ZONE 'UTC',
+  ALTER COLUMN "lockedAt" TYPE TIMESTAMPTZ(3) USING "lockedAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "ProbeRun"
+  ALTER COLUMN "startedAt" TYPE TIMESTAMPTZ(3) USING "startedAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "finishedAt" TYPE TIMESTAMPTZ(3) USING "finishedAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "MonitorState"
+  ALTER COLUMN "lastSuccessAt" TYPE TIMESTAMPTZ(3) USING "lastSuccessAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "lastFailureAt" TYPE TIMESTAMPTZ(3) USING "lastFailureAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "AlertRule"
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "Incident"
+  ALTER COLUMN "openedAt" TYPE TIMESTAMPTZ(3) USING "openedAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "resolvedAt" TYPE TIMESTAMPTZ(3) USING "resolvedAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "NotificationChannel"
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "AlertSubscription"
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC';
+
+ALTER TABLE "NotificationEvent"
+  ALTER COLUMN "nextAttemptAt" TYPE TIMESTAMPTZ(3) USING "nextAttemptAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "sentAt" TYPE TIMESTAMPTZ(3) USING "sentAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "createdAt" TYPE TIMESTAMPTZ(3) USING "createdAt" AT TIME ZONE 'UTC',
+  ALTER COLUMN "updatedAt" TYPE TIMESTAMPTZ(3) USING "updatedAt" AT TIME ZONE 'UTC';

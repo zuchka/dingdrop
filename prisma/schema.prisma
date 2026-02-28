@@ -1,0 +1,375 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MonitorMethod {
+  GET
+  HEAD
+  POST
+}
+
+enum ExpectedStatusMode {
+  RANGE_2XX
+  EXACT_SET
+}
+
+enum BodyMatchType {
+  NONE
+  CONTAINS
+  REGEX
+}
+
+enum MonitorCurrentStatus {
+  UP
+  DOWN
+  DEGRADED
+}
+
+enum ProbeJobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum ProbeFailureReason {
+  NONE
+  NETWORK
+  TIMEOUT
+  BAD_STATUS
+  BODY_MISMATCH
+  TLS_EXPIRY
+}
+
+enum ProbeExecutorType {
+  BLACKBOX
+  NATIVE
+}
+
+enum AlertRuleType {
+  DOWN
+  LATENCY
+  TLS_EXPIRY
+  BODY_MISMATCH
+}
+
+enum IncidentStatus {
+  OPEN
+  RESOLVED
+}
+
+enum IncidentSeverity {
+  CRITICAL
+  WARNING
+}
+
+enum NotificationChannelType {
+  EMAIL
+  SLACK_WEBHOOK
+  GENERIC_WEBHOOK
+}
+
+enum NotificationEventType {
+  OPENED
+  RESOLVED
+}
+
+enum NotificationEventStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @db.Timestamptz(3)
+
+  memberships  OrgMember[]
+
+  @@index([createdAt])
+}
+
+model Org {
+  id        String      @id @default(cuid())
+  name      String
+  slug      String      @unique
+  createdAt DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime    @updatedAt @db.Timestamptz(3)
+
+  members   OrgMember[]
+  endpoints Endpoint[]
+  monitors  Monitor[]
+  channels  NotificationChannel[]
+
+  @@index([createdAt])
+}
+
+model OrgMember {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String
+  role      OrgRole  @default(MEMBER)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@index([orgId, role])
+}
+
+model Endpoint {
+  id               String           @id @default(cuid())
+  orgId             String
+  name             String
+  key              String           @unique
+  secret           String
+  isActive         Boolean          @default(true)
+  defaultReplayUrl String?
+  createdAt        DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+
+  org              Org              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  webhookRequests  WebhookRequest[]
+
+  @@index([orgId])
+  @@index([orgId, createdAt])
+  @@unique([orgId, name])
+}
+
+model WebhookRequest {
+  id              String          @id @default(cuid())
+  endpointId       String
+  method          String
+  path            String
+  query           Json?
+  headers         Json
+  bodyRaw         Bytes
+  bodyText        String?
+  bodyJson        Json?
+  contentType     String?
+  sourceIp        String?
+  userAgent       String?
+  sizeBytes       Int
+  receivedAt      DateTime        @default(now()) @db.Timestamptz(3)
+
+  endpoint        Endpoint        @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  replayAttempts  ReplayAttempt[]
+
+  @@index([endpointId, receivedAt(sort: Desc)])
+  @@index([endpointId, method, receivedAt(sort: Desc)])
+}
+
+model ReplayAttempt {
+  id                String         @id @default(cuid())
+  webhookRequestId  String
+  targetUrl         String
+  requestHeaders    Json
+  responseStatus    Int?
+  responseBody      String?
+  ok                Boolean
+  durationMs        Int
+  errorMessage      String?
+  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
+
+  webhookRequest    WebhookRequest @relation(fields: [webhookRequestId], references: [id], onDelete: Cascade)
+
+  @@index([webhookRequestId, createdAt(sort: Desc)])
+  @@index([ok, createdAt(sort: Desc)])
+}
+
+model Monitor {
+  id                 String               @id @default(cuid())
+  orgId              String
+  name               String
+  url                String
+  method             MonitorMethod        @default(GET)
+  intervalSec        Int                  @default(60)
+  timeoutMs          Int                  @default(10000)
+  isActive           Boolean              @default(true)
+  expectedStatusMode ExpectedStatusMode   @default(RANGE_2XX)
+  expectedStatusCodes Json?
+  bodyMatchType      BodyMatchType        @default(NONE)
+  bodyMatchPattern   String?
+  latencyWarnMs      Int?
+  tlsExpiryWarnDays  Int?
+  createdAt          DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime             @updatedAt @db.Timestamptz(3)
+
+  org                Org                  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobs               ProbeJob[]
+  probeRuns          ProbeRun[]
+  state              MonitorState?
+  alertRules         AlertRule[]
+  incidents          Incident[]
+
+  @@index([orgId, createdAt(sort: Desc)])
+  @@index([orgId, isActive])
+}
+
+model ProbeJob {
+  id           String         @id @default(cuid())
+  monitorId    String
+  region       String
+  slotKey      DateTime       @db.Timestamptz(3)
+  scheduledFor DateTime       @db.Timestamptz(3)
+  status       ProbeJobStatus @default(PENDING)
+  lockedAt     DateTime?      @db.Timestamptz(3)
+  attempts     Int            @default(0)
+  errorMessage String?
+  createdAt    DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime       @updatedAt @db.Timestamptz(3)
+
+  monitor      Monitor        @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@unique([monitorId, slotKey])
+  @@index([status, scheduledFor])
+  @@index([monitorId, scheduledFor(sort: Desc)])
+}
+
+model ProbeRun {
+  id               String            @id @default(cuid())
+  monitorId        String
+  region           String
+  executorType     ProbeExecutorType @default(BLACKBOX)
+  startedAt        DateTime             @db.Timestamptz(3)
+  finishedAt       DateTime             @db.Timestamptz(3)
+  ok               Boolean
+  failureReason    ProbeFailureReason @default(NONE)
+  statusCode       Int?
+  latencyMs        Int?
+  dnsMs            Int?
+  connectMs        Int?
+  ttfbMs           Int?
+  tlsDaysRemaining Int?
+  responseHeaders  Json?
+  responseSnippet  String?
+  errorMessage     String?
+  rawResult        Json?
+  createdAt        DateTime             @default(now()) @db.Timestamptz(3)
+
+  monitor          Monitor           @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([monitorId, startedAt(sort: Desc)])
+  @@index([ok, startedAt(sort: Desc)])
+}
+
+model MonitorState {
+  id                   String               @id @default(cuid())
+  monitorId            String               @unique
+  currentStatus        MonitorCurrentStatus @default(UP)
+  consecutiveFailures  Int                  @default(0)
+  consecutiveSuccesses Int                  @default(0)
+  lastSuccessAt        DateTime?             @db.Timestamptz(3)
+  lastFailureAt        DateTime?             @db.Timestamptz(3)
+  lastProbeRunId       String?
+  updatedAt            DateTime              @updatedAt @db.Timestamptz(3)
+
+  monitor              Monitor              @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([currentStatus])
+}
+
+model AlertRule {
+  id                String          @id @default(cuid())
+  monitorId         String
+  ruleType          AlertRuleType
+  enabled           Boolean         @default(true)
+  thresholdInt      Int?
+  thresholdText     String?
+  severity          IncidentSeverity @default(CRITICAL)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(3)
+
+  monitor           Monitor         @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  subscriptions     AlertSubscription[]
+
+  @@index([monitorId, enabled])
+}
+
+model Incident {
+  id             String          @id @default(cuid())
+  monitorId      String
+  status         IncidentStatus  @default(OPEN)
+  severity       IncidentSeverity @default(CRITICAL)
+  openReason     String
+  resolveReason  String?
+  openedAt       DateTime         @default(now()) @db.Timestamptz(3)
+  resolvedAt     DateTime?        @db.Timestamptz(3)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(3)
+
+  monitor        Monitor         @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  events         NotificationEvent[]
+
+  @@index([monitorId, status, openedAt(sort: Desc)])
+}
+
+model NotificationChannel {
+  id              String                 @id @default(cuid())
+  orgId           String
+  type            NotificationChannelType
+  name            String
+  configEncrypted String
+  enabled         Boolean                @default(true)
+  createdAt       DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime               @updatedAt @db.Timestamptz(3)
+
+  org             Org                    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  subscriptions   AlertSubscription[]
+  events          NotificationEvent[]
+
+  @@index([orgId, enabled])
+}
+
+model AlertSubscription {
+  id         String               @id @default(cuid())
+  alertRuleId String
+  channelId  String
+  createdAt  DateTime              @default(now()) @db.Timestamptz(3)
+
+  alertRule  AlertRule            @relation(fields: [alertRuleId], references: [id], onDelete: Cascade)
+  channel    NotificationChannel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([alertRuleId, channelId])
+  @@index([channelId])
+}
+
+model NotificationEvent {
+  id            String                  @id @default(cuid())
+  incidentId    String
+  channelId     String
+  eventType     NotificationEventType
+  status        NotificationEventStatus @default(PENDING)
+  processingToken String?
+  processingStartedAt DateTime?         @db.Timestamptz(3)
+  attemptCount  Int                     @default(0)
+  lastError     String?
+  nextAttemptAt DateTime?                @db.Timestamptz(3)
+  sentAt        DateTime?                @db.Timestamptz(3)
+  createdAt     DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime                 @updatedAt @db.Timestamptz(3)
+
+  incident      Incident                @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  channel       NotificationChannel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([incidentId, createdAt(sort: Desc)])
+  @@unique([incidentId, channelId, eventType])
+}
