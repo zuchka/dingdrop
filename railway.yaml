@@ -1,0 +1,30 @@
+version: 2
+
+# Railway deployment configuration for Ding monitoring system
+# Deploys the Remix app with PostgreSQL database
+
+build:
+  builder: nixpacks
+  buildCommand: npm ci && npx prisma generate && npm run build
+
+deploy:
+  startCommand: npx prisma migrate deploy && npm run start
+  healthcheckPath: /
+  healthcheckTimeout: 300
+  restartPolicyType: on_failure
+  restartPolicyMaxRetries: 10
+
+# Environment variables to set in Railway dashboard
+# Required:
+#   - DATABASE_URL (provided by Railway Postgres service)
+#   - SESSION_SECRET (generate a random string)
+#   - APP_BASE_URL (your Railway app URL)
+#   - MONITOR_CHANNEL_SECRET (generate a random string)
+#
+# Optional (monitoring features):
+#   - ENABLE_MONITORS_UI=true
+#   - ENABLE_PROBE_SCHEDULER=true
+#   - ENABLE_PROBE_WORKER=true
+#   - ENABLE_NOTIFICATIONS=true
+#   - RESEND_API_KEY (for email notifications)
+#   - RESEND_FROM_EMAIL (verified sender email)
