@@ -138,8 +138,9 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 #### Railway Configuration Notes
 
-- **Automatic migrations:** The `railway.yaml` runs `prisma migrate deploy` on each deployment
-- **Health checks:** Railway monitors the `/` endpoint
+- **Builder:** Uses Railpack (Railway's latest builder) for optimal Node.js builds
+- **Automatic migrations:** The `railway.json` runs `prisma migrate deploy` before each deployment
+- **Health checks:** Railway monitors the `/` endpoint with a 300s timeout
 - **Restart policy:** Automatically restarts on failure (max 10 retries)
 - **Database:** Use Railway's PostgreSQL service for `DATABASE_URL`
 - **Scaling:** Railway supports horizontal scaling for the web service
