@@ -16,7 +16,19 @@ export function bootstrapMonitoringBackgroundProcesses() {
     return;
   }
 
+  // Early exit if all monitoring features are disabled
+  if (!env.ENABLE_PROBE_SCHEDULER && !env.ENABLE_PROBE_WORKER && !env.ENABLE_NOTIFICATIONS) {
+    console.log("[monitoring] All monitoring features disabled, skipping bootstrap");
+    globalForMonitoring.monitoringBootstrapped = true;
+    return;
+  }
+
   globalForMonitoring.monitoringBootstrapped = true;
+  console.log("[monitoring] Bootstrapping with:", {
+    scheduler: env.ENABLE_PROBE_SCHEDULER,
+    worker: env.ENABLE_PROBE_WORKER,
+    notifications: env.ENABLE_NOTIFICATIONS,
+  });
 
   if (env.ENABLE_PROBE_SCHEDULER) {
     setInterval(() => {
