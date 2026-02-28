@@ -33,6 +33,73 @@ The monitoring subsystem is **off by default**. Enable it with feature flags:
 - `ENABLE_PROBE_WORKER=true` — start background probe executor
 - `ENABLE_NOTIFICATIONS=true` — start notification dispatcher
 
+## Monitoring Development Setup
+
+The monitoring system uses [Prometheus Blackbox Exporter](https://github.com/prometheus/blackbox_exporter) to execute HTTP probes. For local development, run it via Docker Compose:
+
+### Quick Start
+
+```bash
+# 1. Start the Blackbox Exporter
+docker-compose up -d
+
+# 2. Copy environment file (if not already done)
+cp .env.example .env
+
+# 3. Enable monitoring features in .env
+# ENABLE_MONITORS_UI=true
+# ENABLE_PROBE_SCHEDULER=true
+# ENABLE_PROBE_WORKER=true
+
+# 4. Start the Remix dev server
+npm run dev
+```
+
+### Verify Setup
+
+Check the exporter is running:
+```bash
+# Health check
+curl http://localhost:9115/health
+
+# View metrics
+curl http://localhost:9115/metrics
+
+# Test a probe manually
+curl "http://localhost:9115/probe?target=https://google.com&module=http_2xx"
+```
+
+### Troubleshooting
+
+**Port 9115 already in use:**
+```bash
+# Find and stop the process using port 9115
+lsof -ti:9115 | xargs kill -9
+# Or change the port mapping in docker-compose.yml and update BLACKBOX_BASE_URL
+```
+
+**Exporter not reachable from Remix app:**
+- Ensure Docker container is running: `docker ps | grep blackbox`
+- Check logs: `docker-compose logs blackbox-exporter`
+- Verify `BLACKBOX_BASE_URL=http://localhost:9115` in your `.env`
+
+**Configuration changes:**
+```bash
+# After editing blackbox.yml, restart the container
+docker-compose restart blackbox-exporter
+```
+
+### Configuration Notes
+
+- **Local Dev:** `BLACKBOX_BASE_URL=http://localhost:9115` (host machine → Docker port mapping)
+- **Docker Compose Full Stack:** `BLACKBOX_BASE_URL=http://blackbox-exporter:9115` (container-to-container)
+- **Production/K8s:** Use service discovery name or cluster DNS
+
+The default `http_2xx` module is configured in `blackbox.yml` with sensible defaults. Additional modules are available:
+- `http_post_2xx` — for POST requests
+- `tcp_connect` — for TCP probes
+- `icmp` — for ping probes (requires privileged mode)
+
 ## Architecture
 
 ### Stack

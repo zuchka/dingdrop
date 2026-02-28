@@ -136,8 +136,11 @@ export class BlackboxProbeExecutor implements ProbeExecutor {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), input.timeoutMs);
 
+    const probeUrl = `${env.BLACKBOX_BASE_URL}/probe?${params.toString()}`;
+    console.log(`[blackbox] Probing ${probeUrl}`);
+
     try {
-      const response = await fetch(`${env.BLACKBOX_BASE_URL}/probe?${params.toString()}`, {
+      const response = await fetch(probeUrl, {
         signal: controller.signal,
       });
 
@@ -153,6 +156,8 @@ export class BlackboxProbeExecutor implements ProbeExecutor {
         },
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to execute blackbox probe.";
+      console.error(`[blackbox] Error probing ${probeUrl}:`, errorMessage);
       return {
         ok: false,
         statusCode: null,
@@ -164,7 +169,7 @@ export class BlackboxProbeExecutor implements ProbeExecutor {
         responseHeaders: {},
         responseSnippet: null,
         failureReason: "NETWORK",
-        errorMessage: error instanceof Error ? error.message : "Failed to execute blackbox probe.",
+        errorMessage,
         raw: {},
       };
     } finally {

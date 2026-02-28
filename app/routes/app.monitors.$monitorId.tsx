@@ -113,6 +113,7 @@ export default function MonitorDetailRoute() {
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Latency</th>
                   <th className="px-3 py-2">Reason</th>
+                  <th className="px-3 py-2">Error</th>
                 </tr>
               </thead>
               <tbody>
@@ -127,6 +128,7 @@ export default function MonitorDetailRoute() {
                     <td className="px-3 py-2 text-slate-600">{run.statusCode ?? "-"}</td>
                     <td className="px-3 py-2 text-slate-600">{run.latencyMs != null ? `${run.latencyMs}ms` : "-"}</td>
                     <td className="px-3 py-2 text-slate-600">{run.failureReason}</td>
+                    <td className="px-3 py-2 text-slate-600 text-xs">{run.errorMessage ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>
