@@ -7,7 +7,7 @@ modules:
       valid_status_codes: []  # Defaults to 2xx
       method: GET
       headers:
-        User-Agent: "DingDrop-Monitor/1.0"
+        User-Agent: "Ding.ing-Monitor/1.0"
       no_follow_redirects: false
       preferred_ip_protocol: "ip4"
       ip_protocol_fallback: true
@@ -24,7 +24,7 @@ modules:
       valid_status_codes: []
       method: POST
       headers:
-        User-Agent: "DingDrop-Monitor/1.0"
+        User-Agent: "Ding.ing-Monitor/1.0"
         Content-Type: "application/json"
       no_follow_redirects: false
       preferred_ip_protocol: "ip4"

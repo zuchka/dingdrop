@@ -2,9 +2,6 @@ import { prisma } from "~/lib/db.server";
 
 export async function resetDatabase() {
   await prisma.$transaction([
-    prisma.replayAttempt.deleteMany(),
-    prisma.webhookRequest.deleteMany(),
-    prisma.endpoint.deleteMany(),
     prisma.orgMember.deleteMany(),
     prisma.org.deleteMany(),
     prisma.user.deleteMany(),

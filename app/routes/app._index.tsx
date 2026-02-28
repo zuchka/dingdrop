@@ -11,7 +11,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw redirect("/app/orgs/new");
   }
 
-  throw redirect(`/app/orgs/${slug}/endpoints`);
+  throw redirect("/app/monitors");
 }
 
 export default function AppIndexRoute() {

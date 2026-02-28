@@ -1,7 +1,7 @@
 import { createCookieSessionStorage, redirect } from "@remix-run/node";
 import { env } from "~/lib/env.server";
 
-const SESSION_NAME = "__dingdrop_session";
+const SESSION_NAME = "__ding_ing_session";
 const USER_SESSION_KEY = "userId";
 
 const sessionStorage = createCookieSessionStorage({

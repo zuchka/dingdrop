@@ -23,7 +23,7 @@ Integration tests require a running Postgres instance. They use `--maxWorkers=1`
 
 Copy `.env.example` to `.env`. Required variables: `DATABASE_URL`, `DIRECT_URL`, `SESSION_SECRET`, `APP_BASE_URL`. All others have defaults.
 
-**Database: Supabase** (`dingdrop-dev`, project `wmgudbosnqtuxfeglaar`, region `us-west-2`)
+**Database: Supabase** (project `wmgudbosnqtuxfeglaar`, region `us-west-2`)
 - `DATABASE_URL` — Supavisor session-mode pooler (`aws-0-us-west-2.pooler.supabase.com:5432`) for Prisma Client runtime
 - `DIRECT_URL` — direct connection (`db.wmgudbosnqtuxfeglaar.supabase.co:5432`) for Prisma migrations
 
@@ -125,16 +125,9 @@ Files with `.server.ts` suffix are Node-only and never bundled for the browser.
 
 Remix file-based routing uses dot-notation for nesting:
 - `app.tsx` — authenticated layout wrapper (guards all `/app/**`)
-- `app.orgs.$orgSlug.endpoints.$endpointId.tsx` — endpoint detail with nested tabs
-- `i.$endpointKey.tsx` — public ingestion route (`/i/:endpointKey`)
+- `app.monitors.$monitorId.tsx` — monitor detail with nested views
 
 ### Core Domains
-
-**Webhook Ingestion** (`/i/:endpointKey`)
-Authentication is via `x-dingdrop-secret` header or `?secret=` query param. The ingestion pipeline in `app/services/ingestion.server.ts` runs: `normalizeIncomingWebhook` → `applyTransforms` (no-op stub for future transforms) → `storeWebhook`.
-
-**Replay** (`app/services/replay.server.ts`)
-Forwards stored webhook bytes to a target URL using the original method, filtered headers (allowlist in `REPLAY_ALLOWED_HEADERS`), and a configurable timeout (`REPLAY_TIMEOUT_MS`). Every attempt is logged as a `ReplayAttempt`.
 
 **Monitoring** (`app/services/monitoring/`)
 Background processes bootstrapped in `bootstrap.server.ts` via `setInterval` calls that use `.unref()` so they don't block process exit:
@@ -153,4 +146,4 @@ Every app query is scoped to an `Org`. `requireOrgMember(userId, orgSlug)` in th
 
 ### Schema Conventions
 
-All timestamps use `@db.Timestamptz(3)` (timezone-aware). Cascade deletes flow from `Org` → `Endpoint` → `WebhookRequest` → `ReplayAttempt`, and from `Org` → `Monitor` → all monitoring children.
+All timestamps use `@db.Timestamptz(3)` (timezone-aware). Cascade deletes flow from `Org` → `Monitor` → all monitoring children (ProbeJob, ProbeRun, AlertRule, Incident, etc.).
