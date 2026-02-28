@@ -78,6 +78,9 @@ enum IncidentSeverity {
 enum NotificationChannelType {
   EMAIL
   SLACK_WEBHOOK
+  DISCORD_WEBHOOK
+  PAGERDUTY
+  SMS_TWILIO
   GENERIC_WEBHOOK
 }
 
