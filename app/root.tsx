@@ -2,7 +2,7 @@ import type { LinksFunction, MetaFunction } from "@remix-run/node";
 import { Links, LiveReload, Meta, Outlet, Scripts, ScrollRestoration } from "@remix-run/react";
 import stylesheet from "~/tailwind.css?url";
 
-export const meta: MetaFunction = () => [{ title: "Dingdrop" }];
+export const meta: MetaFunction = () => [{ title: "Ding.ing" }];
 
 export const links: LinksFunction = () => [{ rel: "stylesheet", href: stylesheet }];
 

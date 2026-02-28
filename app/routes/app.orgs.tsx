@@ -44,7 +44,7 @@ export default function OrgsRoute() {
                   <td className="px-4 py-3 text-slate-600">{org.slug}</td>
                   <td className="px-4 py-3 text-slate-600">{org._count.members}</td>
                   <td className="px-4 py-3 text-right">
-                    <Link to={`/app/orgs/${org.slug}/endpoints`} className="underline">
+                    <Link to="/app/monitors" className="underline">
                       Open
                     </Link>
                   </td>

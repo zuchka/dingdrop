@@ -113,7 +113,6 @@ model Org {
   updatedAt DateTime    @updatedAt @db.Timestamptz(3)
 
   members   OrgMember[]
-  endpoints Endpoint[]
   monitors  Monitor[]
   channels  NotificationChannel[]
 
@@ -133,66 +132,6 @@ model OrgMember {
   @@unique([orgId, userId])
   @@index([userId])
   @@index([orgId, role])
-}
-
-model Endpoint {
-  id               String           @id @default(cuid())
-  orgId             String
-  name             String
-  key              String           @unique
-  secret           String
-  isActive         Boolean          @default(true)
-  defaultReplayUrl String?
-  createdAt        DateTime         @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
-
-  org              Org              @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  webhookRequests  WebhookRequest[]
-
-  @@index([orgId])
-  @@index([orgId, createdAt])
-  @@unique([orgId, name])
-}
-
-model WebhookRequest {
-  id              String          @id @default(cuid())
-  endpointId       String
-  method          String
-  path            String
-  query           Json?
-  headers         Json
-  bodyRaw         Bytes
-  bodyText        String?
-  bodyJson        Json?
-  contentType     String?
-  sourceIp        String?
-  userAgent       String?
-  sizeBytes       Int
-  receivedAt      DateTime        @default(now()) @db.Timestamptz(3)
-
-  endpoint        Endpoint        @relation(fields: [endpointId], references: [id], onDelete: Cascade)
-  replayAttempts  ReplayAttempt[]
-
-  @@index([endpointId, receivedAt(sort: Desc)])
-  @@index([endpointId, method, receivedAt(sort: Desc)])
-}
-
-model ReplayAttempt {
-  id                String         @id @default(cuid())
-  webhookRequestId  String
-  targetUrl         String
-  requestHeaders    Json
-  responseStatus    Int?
-  responseBody      String?
-  ok                Boolean
-  durationMs        Int
-  errorMessage      String?
-  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
-
-  webhookRequest    WebhookRequest @relation(fields: [webhookRequestId], references: [id], onDelete: Cascade)
-
-  @@index([webhookRequestId, createdAt(sort: Desc)])
-  @@index([ok, createdAt(sort: Desc)])
 }
 
 model Monitor {

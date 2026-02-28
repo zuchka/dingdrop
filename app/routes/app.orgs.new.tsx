@@ -36,7 +36,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   try {
     const org = await createOrgWithOwner({ userId, name, slug });
-    throw redirect(`/app/orgs/${org.slug}/endpoints`);
+    throw redirect("/app/monitors");
   } catch {
     return json({ error: "Could not create organization. Slug may already exist." }, { status: 400 });
   }

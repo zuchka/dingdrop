@@ -19,7 +19,7 @@ export default function AppLayout() {
       <header className="border-b bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
-            <Link to="/app" className="font-semibold">Dingdrop</Link>
+            <Link to="/app" className="font-semibold">Ding.ing</Link>
             <Link to="/app/orgs" className="text-sm text-slate-600">Organizations</Link>
             {data.enableMonitorsUi ? (
               <>
