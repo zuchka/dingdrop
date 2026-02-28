@@ -90,7 +90,7 @@ export default function MonitorDetailRoute() {
       </section>
 
       <section className="rounded border bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold">Timeline (recent 100 probes)</h2>
+        <h2 className="mb-4 text-sm font-semibold">Performance & Availability (recent 100 probes)</h2>
         <Timeline
           points={runs
             .slice()
