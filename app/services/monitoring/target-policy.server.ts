@@ -61,13 +61,19 @@ export async function validateMonitorTargetUrlWithDns(value: string) {
 
   try {
     const resolved = await lookup(host, { all: true });
+    console.log(`[target-policy] DNS resolved ${host} to:`, resolved.map(r => r.address).join(", "));
     for (const entry of resolved) {
       if (isBlockedIp(entry.address)) {
+        console.warn(`[target-policy] Blocked resolved IP ${entry.address} for host ${host}`);
         return { ok: false, error: "Resolved target address is blocked by monitoring policy." } as const;
       }
     }
-  } catch {
-    return { ok: false, error: "Failed to resolve target host." } as const;
+  } catch (error) {
+    console.error(
+      `[target-policy] DNS resolution failed for ${host}:`,
+      error instanceof Error ? error.message : String(error)
+    );
+    return { ok: false, error: `Failed to resolve target host: ${error instanceof Error ? error.message : "DNS error"}` } as const;
   }
 
   return basic;

@@ -35,6 +35,16 @@ function evaluate(input: ProbeRequest, metrics: Map<string, number>, rawText: st
     ? Math.round(Number(metrics.get("probe_duration_seconds")) * 1000)
     : null;
 
+  // Log key metrics for debugging failures
+  if (!probeSuccess) {
+    const metricsStr = Array.from(metrics.entries())
+      .map(([k, v]) => `${k}=${v}`)
+      .join("\\n  ");
+    console.warn(
+      `[blackbox] [Monitor ${input.monitorId}] Blackbox probe_success=0\\n  Available metrics:\\n  ${metricsStr}`
+    );
+  }
+
   const nowSec = Date.now() / 1000;
   const certExpiry = metrics.get("probe_ssl_earliest_cert_expiry");
   const tlsDaysRemaining = Number.isFinite(certExpiry ?? NaN)
@@ -111,6 +121,10 @@ export class BlackboxProbeExecutor implements ProbeExecutor {
   async execute(input: ProbeRequest): Promise<ProbeExecutionResult> {
     const validatedTarget = await validateMonitorTargetUrlWithDns(input.url);
     if (!validatedTarget.ok) {
+      console.error(
+        `[blackbox] Target validation failed for ${input.url}:`,
+        validatedTarget.error
+      );
       return {
         ok: false,
         statusCode: null,
@@ -123,7 +137,10 @@ export class BlackboxProbeExecutor implements ProbeExecutor {
         responseSnippet: null,
         failureReason: "NETWORK",
         errorMessage: validatedTarget.error,
-        raw: {},
+        raw: {
+          validationError: validatedTarget.error,
+          targetUrl: input.url,
+        },
       };
     }
 
@@ -137,7 +154,10 @@ export class BlackboxProbeExecutor implements ProbeExecutor {
     const timeout = setTimeout(() => controller.abort(), input.timeoutMs);
 
     const probeUrl = `${env.BLACKBOX_BASE_URL}/probe?${params.toString()}`;
-    console.log(`[blackbox] Probing ${probeUrl}`);
+    const startTime = Date.now();
+    console.log(
+      `[blackbox] [Monitor ${input.monitorId}] Probing ${validatedTarget.url.toString()} via ${probeUrl}`
+    );
 
     try {
       const response = await fetch(probeUrl, {
@@ -145,19 +165,97 @@ export class BlackboxProbeExecutor implements ProbeExecutor {
       });
 
       const rawText = await response.text();
+      const elapsedMs = Date.now() - startTime;
+
+      console.log(
+        `[blackbox] [Monitor ${input.monitorId}] Response: HTTP ${response.status} (${elapsedMs}ms)`
+      );
+
+      // Log non-200 responses from blackbox itself
+      if (response.status !== 200) {
+        console.warn(
+          `[blackbox] [Monitor ${input.monitorId}] Blackbox returned non-200 status: ${response.status}\nResponse body:\n${rawText.slice(0, 500)}`
+        );
+      }
+
+      // Verbose debug logging
+      if (env.DEBUG_VERBOSE) {
+        console.log(
+          `[blackbox] [Monitor ${input.monitorId}] Raw metrics response (first 1000 chars):\n${rawText.slice(0, 1000)}`
+        );
+      }
+
       const metrics = parseMetrics(rawText);
       const evaluated = evaluate(input, metrics, rawText);
+
+      if (!evaluated.ok) {
+        console.warn(
+          `[blackbox] [Monitor ${input.monitorId}] Probe failed: ${evaluated.failureReason} - ${evaluated.errorMessage}`
+        );
+      }
 
       return {
         ...evaluated,
         raw: {
           blackboxStatus: response.status,
+          blackboxUrl: probeUrl,
+          targetUrl: validatedTarget.url.toString(),
+          elapsedMs,
           metrics: Object.fromEntries(metrics),
+          metricsRaw: rawText.slice(0, 2000), // Include raw metrics for debugging
         },
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to execute blackbox probe.";
-      console.error(`[blackbox] Error probing ${probeUrl}:`, errorMessage);
+      const elapsedMs = Date.now() - startTime;
+
+      // Detailed error classification
+      let errorType = "UNKNOWN";
+      let errorMessage = "Failed to execute blackbox probe.";
+      let errorDetails: Record<string, unknown> = {};
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        errorDetails = {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        };
+
+        // Classify error type
+        if (error.name === "AbortError") {
+          errorType = "TIMEOUT";
+          errorMessage = `Blackbox request timed out after ${input.timeoutMs}ms`;
+        } else if (error.message.includes("ECONNREFUSED")) {
+          errorType = "CONNECTION_REFUSED";
+          errorMessage = `Blackbox exporter refused connection at ${env.BLACKBOX_BASE_URL}`;
+        } else if (error.message.includes("ENOTFOUND")) {
+          errorType = "DNS_FAILED";
+          errorMessage = `Failed to resolve blackbox host: ${env.BLACKBOX_BASE_URL}`;
+        } else if (error.message.includes("ETIMEDOUT")) {
+          errorType = "NETWORK_TIMEOUT";
+          errorMessage = `Network timeout connecting to blackbox exporter`;
+        } else if (error.message.includes("ECONNRESET")) {
+          errorType = "CONNECTION_RESET";
+          errorMessage = `Connection reset by blackbox exporter`;
+        }
+
+        // Capture error cause chain
+        if ("cause" in error && error.cause) {
+          errorDetails.cause = error.cause;
+          errorDetails.causeString = String(error.cause);
+        }
+      }
+
+      console.error(
+        `[blackbox] [Monitor ${input.monitorId}] ${errorType} error after ${elapsedMs}ms:`,
+        `\n  Error: ${errorMessage}`,
+        `\n  Blackbox URL: ${probeUrl}`,
+        `\n  Target URL: ${validatedTarget.url.toString()}`,
+        `\n  Timeout: ${input.timeoutMs}ms`,
+        `\n  Full error:`,
+        error
+      );
+
       return {
         ok: false,
         statusCode: null,
@@ -169,8 +267,15 @@ export class BlackboxProbeExecutor implements ProbeExecutor {
         responseHeaders: {},
         responseSnippet: null,
         failureReason: "NETWORK",
-        errorMessage,
-        raw: {},
+        errorMessage: `[${errorType}] ${errorMessage}`,
+        raw: {
+          errorType,
+          errorDetails,
+          blackboxUrl: probeUrl,
+          targetUrl: validatedTarget.url.toString(),
+          elapsedMs,
+          timeoutMs: input.timeoutMs,
+        },
       };
     } finally {
       clearTimeout(timeout);
