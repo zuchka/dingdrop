@@ -6,6 +6,13 @@ export function listChannelsForOrg(orgId: string) {
   return prisma.notificationChannel.findMany({
     where: { orgId },
     orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      enabled: true,
+      createdAt: true,
+    },
   });
 }
 
@@ -36,7 +43,7 @@ export function createChannelForOrg({
   });
 }
 
-export function updateChannelForOrg({
+export async function updateChannelForOrg({
   orgId,
   channelId,
   name,
@@ -49,12 +56,38 @@ export function updateChannelForOrg({
   enabled?: boolean;
   config?: Record<string, unknown>;
 }) {
-  return prisma.notificationChannel.updateMany({
+  // First verify the channel exists and belongs to the org
+  const existing = await prisma.notificationChannel.findFirst({
     where: { id: channelId, orgId },
+  });
+
+  if (!existing) {
+    throw new Error(`Channel ${channelId} not found or does not belong to organization`);
+  }
+
+  // Now perform the update
+  return prisma.notificationChannel.update({
+    where: { id: channelId },
     data: {
       name,
       enabled,
       configEncrypted: config ? encryptJson(config) : undefined,
     },
+  });
+}
+
+export async function deleteChannelForOrg(orgId: string, channelId: string) {
+  // Verify the channel exists and belongs to the org before deletion
+  const existing = await prisma.notificationChannel.findFirst({
+    where: { id: channelId, orgId },
+  });
+
+  if (!existing) {
+    throw new Error(`Channel ${channelId} not found or does not belong to organization`);
+  }
+
+  // Delete the channel (cascade will handle related records)
+  return prisma.notificationChannel.delete({
+    where: { id: channelId },
   });
 }

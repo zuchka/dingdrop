@@ -4,6 +4,7 @@ import { runNotificationDispatchBatch } from "~/services/monitoring/notifier.ser
 import { runMonitoringRetentionPass } from "~/services/monitoring/retention.server";
 import { runSchedulerTick } from "~/services/monitoring/scheduler.server";
 import { runProbeWorkerBatch } from "~/services/monitoring/worker.server";
+import { getNotificationMetrics, logNotificationMetrics } from "~/services/monitoring/notification-metrics.server";
 
 const globalForMonitoring = globalThis as unknown as {
   monitoringBootstrapped?: boolean;
@@ -53,4 +54,17 @@ export function bootstrapMonitoringBackgroundProcesses() {
       console.error("[monitoring:retention]", error);
     });
   }, 60 * 60 * 1000).unref();
+
+  // Log notification metrics every 5 minutes if notifications enabled
+  if (env.ENABLE_NOTIFICATIONS) {
+    setInterval(() => {
+      getNotificationMetrics()
+        .then((metrics) => {
+          logNotificationMetrics(metrics);
+        })
+        .catch((error) => {
+          console.error("[monitoring:metrics]", error);
+        });
+    }, 5 * 60 * 1000).unref();
+  }
 }
