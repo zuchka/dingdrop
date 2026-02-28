@@ -36,10 +36,16 @@ export async function applyProbeResultToMonitorState({
     },
   });
 
+  // Fetch the latest probe run for alert evaluation
+  const latestProbeRun = await prisma.probeRun.findUnique({
+    where: { id: probeRunId },
+  });
+
   await evaluateMonitorAlertState({
     monitorId,
     consecutiveFailures: updated.consecutiveFailures,
     consecutiveSuccesses: updated.consecutiveSuccesses,
+    latestProbeRun,
   });
 
   return updated;
