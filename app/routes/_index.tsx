@@ -9,7 +9,7 @@ export default function Index() {
       "Track performance metrics in real-time",
       "Keep your services running smoothly",
     ],
-    typingSpeed: 80,
+    typingSpeed: 40,
     deletingSpeed: 40,
     pauseAfterTyping: 2000,
     pauseAfterDeleting: 500,
