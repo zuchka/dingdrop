@@ -4,10 +4,13 @@ import { env } from "~/lib/env.server";
 /**
  * Structured logger using Pino
  * Automatically redacts sensitive fields and provides queryable JSON logs
+ *
+ * Note: In development, logs are JSON format. Use `npm run dev | npx pino-pretty`
+ * if you want pretty-printed logs during development.
  */
 export const logger = pino({
   level: process.env.LOG_LEVEL || "info",
-  
+
   // Redact sensitive fields from logs
   redact: {
     paths: [
@@ -33,17 +36,7 @@ export const logger = pino({
     ],
     remove: true, // Remove the entire value
   },
-  
-  // Pretty print in development, JSON in production
-  transport: process.env.NODE_ENV === "development" ? {
-    target: "pino-pretty",
-    options: {
-      colorize: true,
-      translateTime: "HH:MM:ss",
-      ignore: "pid,hostname",
-    },
-  } : undefined,
-  
+
   // Base fields added to every log
   base: {
     env: process.env.NODE_ENV || "development",
