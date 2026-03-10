@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Form, Link, useLoaderData } from "@remix-run/react";
+import { Form, Link, useLoaderData, useFetcher } from "@remix-run/react";
 import { Timeline } from "~/components/monitoring/timeline";
 import { env } from "~/lib/env.server";
 import { formatTimestamp } from "~/lib/utils/format";
@@ -59,8 +59,27 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
 export default function MonitorDetailRoute() {
   const { monitor, runs, incidents, rules, probeRuntimeEnabled } = useLoaderData<typeof loader>();
+  const refreshFetcher = useFetcher<typeof loader>();
+  const toggleFetcher = useFetcher();
   const hasProbeData = runs.length > 0 || Boolean(monitor.state?.lastProbeRunId);
   const displayStatus = hasProbeData ? (monitor.state?.currentStatus ?? "DEGRADED") : "NO_DATA";
+
+  // Use fetcher data if available (for refresh), otherwise use loader data
+  const displayRuns = refreshFetcher.data?.runs ?? runs;
+  const lastProbeTime = displayRuns[0]?.startedAt;
+  const isRefreshing = refreshFetcher.state !== "idle";
+
+  // Optimistic UI for monitor active state
+  const isToggling = toggleFetcher.state !== "idle";
+  const optimisticActive = isToggling
+    ? toggleFetcher.formData?.get("isActive") === "on"
+    : monitor.isActive;
+
+  // Calculate if data is stale (older than 2x interval)
+  const now = new Date().getTime();
+  const lastProbeMs = lastProbeTime ? new Date(lastProbeTime).getTime() : 0;
+  const timeSinceLastProbe = lastProbeMs ? Math.floor((now - lastProbeMs) / 1000) : null;
+  const isStale = timeSinceLastProbe !== null && timeSinceLastProbe > monitor.intervalSec * 2;
 
   return (
     <div className="space-y-4">
@@ -73,26 +92,52 @@ export default function MonitorDetailRoute() {
 
       <section className="rounded border bg-white p-4">
         <div className="flex items-center justify-between gap-4">
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-semibold">{monitor.name}</h1>
             <p className="text-sm text-slate-600 break-all">{monitor.method} {monitor.url}</p>
           </div>
-          <Form method="post" className="flex items-center gap-2 text-sm">
+          <toggleFetcher.Form method="post" className="flex items-center gap-2 text-sm">
             <label className="flex items-center gap-2">
-              <input type="checkbox" name="isActive" defaultChecked={monitor.isActive} /> Active
+              <input
+                type="checkbox"
+                name="isActive"
+                checked={optimisticActive}
+                onChange={(e) => {
+                  const formData = new FormData();
+                  formData.set("isActive", e.target.checked ? "on" : "off");
+                  toggleFetcher.submit(formData, { method: "post" });
+                }}
+              />
+              Active {isToggling && <span className="text-xs text-slate-400">(saving...)</span>}
             </label>
-            <button type="submit" className="rounded border px-3 py-1.5">Save</button>
-          </Form>
+          </toggleFetcher.Form>
         </div>
-        <div className="mt-3 text-sm text-slate-600">
-          Current status: <span className="font-medium">{displayStatus}</span>
+        <div className="mt-3 flex items-center justify-between gap-4">
+          <div className="text-sm text-slate-600">
+            Current status: <span className="font-medium">{displayStatus}</span>
+            {lastProbeTime && (
+              <span className={`ml-4 ${isStale ? "text-amber-600" : ""}`}>
+                Last probe: {timeSinceLastProbe !== null ? `${timeSinceLastProbe}s ago` : formatTimestamp(lastProbeTime)}
+                {isStale && " ⚠️"}
+              </span>
+            )}
+          </div>
+          <refreshFetcher.Form method="get">
+            <button
+              type="submit"
+              disabled={isRefreshing}
+              className="rounded border px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-50"
+            >
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </refreshFetcher.Form>
         </div>
       </section>
 
       <section className="rounded border bg-white p-4">
         <h2 className="mb-4 text-sm font-semibold">Performance & Availability (recent 100 probes)</h2>
         <Timeline
-          points={runs
+          points={displayRuns
             .slice()
             .reverse()
             .map((run) => ({ ok: run.ok, latencyMs: run.latencyMs, startedAt: run.startedAt }))}
@@ -101,7 +146,7 @@ export default function MonitorDetailRoute() {
 
       <section className="rounded border bg-white p-4">
         <h2 className="text-sm font-semibold">Recent probe runs</h2>
-        {runs.length === 0 ? (
+        {displayRuns.length === 0 ? (
           <p className="mt-2 text-sm text-slate-600">No probe runs yet.</p>
         ) : (
           <div className="mt-3 overflow-x-auto">
@@ -117,7 +162,7 @@ export default function MonitorDetailRoute() {
                 </tr>
               </thead>
               <tbody>
-                {runs.map((run) => (
+                {displayRuns.map((run) => (
                   <tr key={run.id} className="border-t">
                     <td className="px-3 py-2 text-slate-600">{formatTimestamp(run.startedAt)}</td>
                     <td className="px-3 py-2">

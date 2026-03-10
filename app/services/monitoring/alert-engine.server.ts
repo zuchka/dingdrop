@@ -1,8 +1,13 @@
-import type { ProbeRun } from "@prisma/client";
+import type { ProbeRun, AlertRule, AlertSubscription } from "@prisma/client";
 import { ALERT_OPEN_FAILURES, ALERT_RESOLVE_SUCCESSES, ALERT_COOLDOWN_MINUTES } from "~/lib/constants";
 import { getEnabledAlertRulesForMonitor } from "~/models/monitoring/alert.server";
 import { getOpenIncidentForMonitor, openIncident as createIncident, resolveIncident } from "~/models/monitoring/incident.server";
 import { createNotificationEventsForIncident } from "~/models/monitoring/notification.server";
+
+// Type for alert rules with subscriptions loaded
+type AlertRuleWithSubscriptions = AlertRule & {
+  subscriptions: AlertSubscription[];
+};
 
 /**
  * Evaluate alert rules for a monitor after a probe run
@@ -64,7 +69,7 @@ async function evaluateDownRules({
   monitorId: string;
   consecutiveFailures: number;
   consecutiveSuccesses: number;
-  rules: any[];
+  rules: AlertRuleWithSubscriptions[];
 }) {
   if (rules.length === 0) return;
 
@@ -78,7 +83,7 @@ async function evaluateDownRules({
       `Monitor failed ${consecutiveFailures} consecutive checks.`
     );
 
-    const channelIds = rules.flatMap((rule) => rule.subscriptions.map((sub: any) => sub.channelId));
+    const channelIds = rules.flatMap((rule) => rule.subscriptions.map((sub) => sub.channelId));
 
     await createNotificationEventsForIncident({
       incidentId: incident.id,
@@ -94,7 +99,7 @@ async function evaluateDownRules({
       `Monitor recovered after ${consecutiveSuccesses} consecutive successes.`
     );
 
-    const channelIds = rules.flatMap((rule) => rule.subscriptions.map((sub: any) => sub.channelId));
+    const channelIds = rules.flatMap((rule) => rule.subscriptions.map((sub) => sub.channelId));
 
     await createNotificationEventsForIncident({
       incidentId: resolved.id,
@@ -114,7 +119,7 @@ async function evaluateLatencyRules({
 }: {
   monitorId: string;
   probeRun: ProbeRun;
-  rules: any[];
+  rules: AlertRuleWithSubscriptions[];
 }) {
   for (const rule of rules) {
     const threshold = rule.thresholdInt;
@@ -131,7 +136,7 @@ async function evaluateLatencyRules({
         `Latency ${probeRun.latencyMs}ms exceeds threshold ${threshold}ms.`
       );
 
-      const channelIds = rule.subscriptions.map((sub: any) => sub.channelId);
+      const channelIds = rule.subscriptions.map((sub) => sub.channelId);
       await createNotificationEventsForIncident({
         incidentId: incident.id,
         channelIds,
@@ -146,7 +151,7 @@ async function evaluateLatencyRules({
         `Latency ${probeRun.latencyMs}ms returned below threshold ${threshold}ms.`
       );
 
-      const channelIds = rule.subscriptions.map((sub: any) => sub.channelId);
+      const channelIds = rule.subscriptions.map((sub) => sub.channelId);
       await createNotificationEventsForIncident({
         incidentId: resolved.id,
         channelIds,
@@ -166,7 +171,7 @@ async function evaluateTlsExpiryRules({
 }: {
   monitorId: string;
   probeRun: ProbeRun;
-  rules: any[];
+  rules: AlertRuleWithSubscriptions[];
 }) {
   for (const rule of rules) {
     const threshold = rule.thresholdInt; // days until expiry
@@ -183,7 +188,7 @@ async function evaluateTlsExpiryRules({
         `TLS certificate expires in ${probeRun.tlsDaysRemaining} days (threshold: ${threshold} days).`
       );
 
-      const channelIds = rule.subscriptions.map((sub: any) => sub.channelId);
+      const channelIds = rule.subscriptions.map((sub) => sub.channelId);
       await createNotificationEventsForIncident({
         incidentId: incident.id,
         channelIds,
@@ -198,7 +203,7 @@ async function evaluateTlsExpiryRules({
         `TLS certificate renewed. Now expires in ${probeRun.tlsDaysRemaining} days.`
       );
 
-      const channelIds = rule.subscriptions.map((sub: any) => sub.channelId);
+      const channelIds = rule.subscriptions.map((sub) => sub.channelId);
       await createNotificationEventsForIncident({
         incidentId: resolved.id,
         channelIds,
@@ -218,7 +223,7 @@ async function evaluateBodyMismatchRules({
 }: {
   monitorId: string;
   probeRun: ProbeRun;
-  rules: any[];
+  rules: AlertRuleWithSubscriptions[];
 }) {
   for (const rule of rules) {
     const pattern = rule.thresholdText;
@@ -245,7 +250,7 @@ async function evaluateBodyMismatchRules({
         `Response body does not match expected pattern: "${pattern}".`
       );
 
-      const channelIds = rule.subscriptions.map((sub: any) => sub.channelId);
+      const channelIds = rule.subscriptions.map((sub) => sub.channelId);
       await createNotificationEventsForIncident({
         incidentId: incident.id,
         channelIds,
@@ -260,7 +265,7 @@ async function evaluateBodyMismatchRules({
         `Response body now matches expected pattern: "${pattern}".`
       );
 
-      const channelIds = rule.subscriptions.map((sub: any) => sub.channelId);
+      const channelIds = rule.subscriptions.map((sub) => sub.channelId);
       await createNotificationEventsForIncident({
         incidentId: resolved.id,
         channelIds,
