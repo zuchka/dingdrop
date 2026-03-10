@@ -39,7 +39,7 @@ export function Timeline({
         minute: "2-digit",
       }),
       fullTime: date.toLocaleString(),
-      latency: point.latencyMs ?? 0,
+      latency: point.latencyMs ?? null, // Preserve null values instead of mapping to 0
       status: point.ok ? 1 : 0,
       statusLabel: point.ok ? "UP" : "DOWN",
       // Create a visual indicator value for status
@@ -50,7 +50,7 @@ export function Timeline({
 
   const maxLatency = Math.max(
     100,
-    ...chartData.map((d) => d.latency).filter((v) => v > 0)
+    ...chartData.map((d) => d.latency).filter((v) => v !== null && v > 0)
   );
 
   return (
@@ -79,10 +79,16 @@ export function Timeline({
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200" />
               <XAxis
-                dataKey="time"
+                dataKey="timestamp"
+                type="number"
+                domain={['dataMin', 'dataMax']}
                 tick={{ fontSize: 10, fill: "#64748b" }}
                 tickLine={false}
                 axisLine={{ stroke: "#cbd5e1" }}
+                tickFormatter={(ts) => new Date(ts).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               />
               <YAxis hide domain={[0, 1]} />
               <ChartTooltip
@@ -167,10 +173,16 @@ export function Timeline({
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200" />
               <XAxis
-                dataKey="time"
+                dataKey="timestamp"
+                type="number"
+                domain={['dataMin', 'dataMax']}
                 tick={{ fontSize: 10, fill: "#64748b" }}
                 tickLine={false}
                 axisLine={{ stroke: "#cbd5e1" }}
+                tickFormatter={(ts) => new Date(ts).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               />
               <YAxis
                 tick={{ fontSize: 10, fill: "#64748b" }}

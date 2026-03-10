@@ -8,6 +8,20 @@ import { sendPagerDutyEvent } from "~/services/monitoring/pagerduty-notifier.ser
 import { sendTwilioSMS } from "~/services/monitoring/twilio-sms-notifier.server";
 import { sendGenericWebhook } from "~/services/monitoring/webhook-notifier.server";
 import { formatNotificationError } from "~/lib/utils/error-sanitizer";
+import {
+  emailConfigSchema,
+  slackWebhookConfigSchema,
+  discordWebhookConfigSchema,
+  pagerdutyConfigSchema,
+  twilioSmsConfigSchema,
+  genericWebhookConfigSchema,
+  type EmailConfig,
+  type SlackWebhookConfig,
+  type DiscordWebhookConfig,
+  type PagerDutyConfig,
+  type TwilioSmsConfig,
+  type GenericWebhookConfig,
+} from "~/lib/schemas/notification-channel";
 
 function decodeChannelConfig(configEncrypted: string, channelId: string): Record<string, unknown> {
   try {
@@ -34,56 +48,39 @@ export async function runNotificationDispatchBatch(limit = 20) {
       const text = `[${event.eventType}] ${event.incident.monitor.name}: ${event.incident.openReason}`;
 
       if (event.channel.type === "EMAIL") {
-        const to = String(config.to ?? "");
-        if (!to) {
-          throw new Error("Missing email recipient (config.to)");
-        }
-        await sendEmailNotification({ to, subject: `ding.ing ${event.eventType}`, body: text });
+        const validatedConfig = emailConfigSchema.parse(config);
+        await sendEmailNotification({
+          to: validatedConfig.to,
+          subject: `ding.ing ${event.eventType}`,
+          body: text
+        });
       } else if (event.channel.type === "SLACK_WEBHOOK") {
-        const webhookUrl = String(config.webhookUrl ?? "");
-        if (!webhookUrl) {
-          throw new Error("Missing slack webhookUrl");
-        }
-        await sendSlackWebhook({ webhookUrl, text });
+        const validatedConfig = slackWebhookConfigSchema.parse(config);
+        await sendSlackWebhook({ webhookUrl: validatedConfig.webhookUrl, text });
       } else if (event.channel.type === "DISCORD_WEBHOOK") {
-        const webhookUrl = String(config.webhookUrl ?? "");
-        if (!webhookUrl) {
-          throw new Error("Missing discord webhookUrl");
-        }
-        await sendDiscordWebhook({ webhookUrl, text });
+        const validatedConfig = discordWebhookConfigSchema.parse(config);
+        await sendDiscordWebhook({ webhookUrl: validatedConfig.webhookUrl, text });
       } else if (event.channel.type === "PAGERDUTY") {
-        const integrationKey = String(config.integrationKey ?? "");
-        if (!integrationKey) {
-          throw new Error("Missing PagerDuty integration key");
-        }
+        const validatedConfig = pagerdutyConfigSchema.parse(config);
         await sendPagerDutyEvent({
-          integrationKey,
+          integrationKey: validatedConfig.integrationKey,
           eventType: event.eventType,
           summary: text,
           incidentId: event.incidentId,
         });
       } else if (event.channel.type === "SMS_TWILIO") {
-        const accountSid = String(config.accountSid ?? "");
-        const authToken = String(config.authToken ?? "");
-        const fromNumber = String(config.fromNumber ?? "");
-        const toNumber = String(config.toNumber ?? "");
-        if (!accountSid || !authToken || !fromNumber || !toNumber) {
-          throw new Error("Missing Twilio credentials (accountSid, authToken, fromNumber, or toNumber)");
-        }
+        const validatedConfig = twilioSmsConfigSchema.parse(config);
         await sendTwilioSMS({
-          accountSid,
-          authToken,
-          fromNumber,
-          toNumber,
+          accountSid: validatedConfig.accountSid,
+          authToken: validatedConfig.authToken,
+          fromNumber: validatedConfig.from,
+          toNumber: validatedConfig.to,
           message: text,
         });
       } else {
-        const webhookUrl = String(config.webhookUrl ?? "");
-        if (!webhookUrl) {
-          throw new Error("Missing webhook webhookUrl");
-        }
+        const validatedConfig = genericWebhookConfigSchema.parse(config);
         await sendGenericWebhook({
-          webhookUrl,
+          webhookUrl: validatedConfig.url,
           payload: {
             eventType: event.eventType,
             incidentId: event.incidentId,

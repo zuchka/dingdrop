@@ -23,7 +23,7 @@ export function listMonitorsForOrg(orgId: string) {
     include: {
       state: true,
       probeRuns: {
-        take: 50,
+        take: 5, // Reduced from 50 to avoid N+1 query performance issues on list view
         orderBy: { startedAt: "desc" },
         select: { ok: true, latencyMs: true, startedAt: true },
       },
